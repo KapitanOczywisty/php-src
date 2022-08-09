@@ -137,6 +137,8 @@ function preg_quote(string $str, ?string $delimiter = null): string {}
 /** @refcount 1 */
 function preg_grep(string $pattern, array $array, int $flags = 0): array|false {}
 
+function preg_validate(string $pattern): bool {}
+
 function preg_last_error(): int {}
 
 function preg_last_error_msg(): string {}

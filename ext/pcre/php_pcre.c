@@ -2953,6 +2953,25 @@ PHPAPI void  php_pcre_grep_impl(pcre_cache_entry *pce, zval *input, zval *return
 }
 /* }}} */
 
+/* {{{ Validate regular expression */
+PHP_FUNCTION(preg_validate)
+{
+	/* parameters */
+	zend_string		 *regex;			/* Regular expression */
+
+	ZEND_PARSE_PARAMETERS_START(1, 1)
+		Z_PARAM_STR(regex)
+	ZEND_PARSE_PARAMETERS_END();
+
+	/* Compile regex or get it from cache. */
+	if (pcre_get_compiled_regex_cache(regex) == NULL) {
+		RETURN_FALSE;
+	}
+
+	RETURN_TRUE;
+}
+/* }}} */
+
 /* {{{ Returns the error code of the last regexp execution. */
 PHP_FUNCTION(preg_last_error)
 {
