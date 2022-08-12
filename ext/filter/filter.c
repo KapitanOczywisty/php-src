@@ -41,6 +41,7 @@ static const filter_list_entry filter_list[] = {
 	{ "float",           FILTER_VALIDATE_FLOAT,         php_filter_float           },
 
 	{ "validate_regexp", FILTER_VALIDATE_REGEXP,        php_filter_validate_regexp },
+	{ "validate_regexp_pattern", FILTER_VALIDATE_REGEXP_PATTERN, php_filter_validate_regexp_pattern },
 	{ "validate_domain", FILTER_VALIDATE_DOMAIN,        php_filter_validate_domain },
 	{ "validate_url",    FILTER_VALIDATE_URL,           php_filter_validate_url    },
 	{ "validate_email",  FILTER_VALIDATE_EMAIL,         php_filter_validate_email  },

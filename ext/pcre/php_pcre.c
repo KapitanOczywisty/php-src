@@ -585,8 +585,8 @@ static zend_always_inline size_t calculate_unit_length(pcre_cache_entry *pce, co
 }
 /* }}} */
 
-/* {{{ pcre_get_compiled_regex_cache */
-PHPAPI pcre_cache_entry* pcre_get_compiled_regex_cache_ex(zend_string *regex, int locale_aware)
+/* {{{ _pcre_get_compiled_regex_cache */
+static pcre_cache_entry* _pcre_get_compiled_regex_cache_ex(zend_string *regex, int locale_aware, int suppress_errors)
 {
 	pcre2_code			*re = NULL;
 #if 10 == PCRE2_MAJOR && 37 == PCRE2_MINOR && !HAVE_BUNDLED_PCRE
@@ -639,8 +639,10 @@ PHPAPI pcre_cache_entry* pcre_get_compiled_regex_cache_ex(zend_string *regex, in
 		if (key != regex) {
 			zend_string_release_ex(key, 0);
 		}
-		php_error_docref(NULL, E_WARNING, "Empty regular expression");
-		pcre_handle_exec_error(PCRE2_ERROR_INTERNAL);
+		if (!suppress_errors) {
+			php_error_docref(NULL, E_WARNING, "Empty regular expression");
+			pcre_handle_exec_error(PCRE2_ERROR_INTERNAL);
+		}
 		return NULL;
 	}
 
@@ -651,8 +653,10 @@ PHPAPI pcre_cache_entry* pcre_get_compiled_regex_cache_ex(zend_string *regex, in
 		if (key != regex) {
 			zend_string_release_ex(key, 0);
 		}
-		php_error_docref(NULL, E_WARNING, "Delimiter must not be alphanumeric, backslash, or NUL");
-		pcre_handle_exec_error(PCRE2_ERROR_INTERNAL);
+		if (!suppress_errors) {
+			php_error_docref(NULL, E_WARNING, "Delimiter must not be alphanumeric, backslash, or NUL");
+			pcre_handle_exec_error(PCRE2_ERROR_INTERNAL);
+		}
 		return NULL;
 	}
 
@@ -694,12 +698,14 @@ PHPAPI pcre_cache_entry* pcre_get_compiled_regex_cache_ex(zend_string *regex, in
 		if (key != regex) {
 			zend_string_release_ex(key, 0);
 		}
-		if (start_delimiter == end_delimiter) {
-			php_error_docref(NULL,E_WARNING, "No ending delimiter '%c' found", delimiter);
-		} else {
-			php_error_docref(NULL,E_WARNING, "No ending matching delimiter '%c' found", delimiter);
+		if (!suppress_errors) {
+			if (start_delimiter == end_delimiter) {
+				php_error_docref(NULL,E_WARNING, "No ending delimiter '%c' found", delimiter);
+			} else {
+				php_error_docref(NULL,E_WARNING, "No ending matching delimiter '%c' found", delimiter);
+			}
+			pcre_handle_exec_error(PCRE2_ERROR_INTERNAL);
 		}
-		pcre_handle_exec_error(PCRE2_ERROR_INTERNAL);
 		return NULL;
 	}
 
@@ -746,12 +752,14 @@ PHPAPI pcre_cache_entry* pcre_get_compiled_regex_cache_ex(zend_string *regex, in
 				break;
 
 			default:
-				if (pp[-1]) {
-					php_error_docref(NULL, E_WARNING, "Unknown modifier '%c'", pp[-1]);
-				} else {
-					php_error_docref(NULL, E_WARNING, "NUL is not a valid modifier");
+				if (!suppress_errors) {
+					if (pp[-1]) {
+						php_error_docref(NULL, E_WARNING, "Unknown modifier '%c'", pp[-1]);
+					} else {
+						php_error_docref(NULL, E_WARNING, "NUL is not a valid modifier");
+					}
+					pcre_handle_exec_error(PCRE2_ERROR_INTERNAL);
 				}
-				pcre_handle_exec_error(PCRE2_ERROR_INTERNAL);
 				efree(pattern);
 				if (key != regex) {
 					zend_string_release_ex(key, 0);
@@ -761,8 +769,10 @@ PHPAPI pcre_cache_entry* pcre_get_compiled_regex_cache_ex(zend_string *regex, in
 	}
 
 	if (poptions & PREG_REPLACE_EVAL) {
-		php_error_docref(NULL, E_WARNING, "The /e modifier is no longer supported, use preg_replace_callback instead");
-		pcre_handle_exec_error(PCRE2_ERROR_INTERNAL);
+		if (!suppress_errors) {
+			php_error_docref(NULL, E_WARNING, "The /e modifier is no longer supported, use preg_replace_callback instead");
+			pcre_handle_exec_error(PCRE2_ERROR_INTERNAL);
+		}
 		efree(pattern);
 		if (key != regex) {
 			zend_string_release_ex(key, 0);
@@ -776,8 +786,10 @@ PHPAPI pcre_cache_entry* pcre_get_compiled_regex_cache_ex(zend_string *regex, in
 			zend_string *_k;
 			tables = pcre2_maketables(gctx);
 			if (UNEXPECTED(!tables)) {
-				php_error_docref(NULL,E_WARNING, "Failed to generate locale character tables");
-				pcre_handle_exec_error(PCRE2_ERROR_NOMEMORY);
+				if (!suppress_errors) {
+					php_error_docref(NULL, E_WARNING, "Failed to generate locale character tables");
+					pcre_handle_exec_error(PCRE2_ERROR_NOMEMORY);
+				}
 				zend_string_release_ex(key, 0);
 				efree(pattern);
 				return NULL;
@@ -797,9 +809,11 @@ PHPAPI pcre_cache_entry* pcre_get_compiled_regex_cache_ex(zend_string *regex, in
 		if (key != regex) {
 			zend_string_release_ex(key, 0);
 		}
-		pcre2_get_error_message(errnumber, error, sizeof(error));
-		php_error_docref(NULL,E_WARNING, "Compilation failed: %s at offset %zu", error, erroffset);
-		pcre_handle_exec_error(PCRE2_ERROR_INTERNAL);
+		if (!suppress_errors) {
+			pcre2_get_error_message(errnumber, error, sizeof(error));
+			php_error_docref(NULL,E_WARNING, "Compilation failed: %s at offset %zu", error, erroffset);
+			pcre_handle_exec_error(PCRE2_ERROR_INTERNAL);
+		}
 		efree(pattern);
 		return NULL;
 	}
@@ -814,15 +828,19 @@ PHPAPI pcre_cache_entry* pcre_get_compiled_regex_cache_ex(zend_string *regex, in
 				poptions |= PREG_JIT;
 			}
 		} else if (rc == PCRE2_ERROR_NOMEMORY) {
-			php_error_docref(NULL, E_WARNING,
-				"Allocation of JIT memory failed, PCRE JIT will be disabled. "
-				"This is likely caused by security restrictions. "
-				"Either grant PHP permission to allocate executable memory, or set pcre.jit=0");
+			if (!suppress_errors) {
+				php_error_docref(NULL, E_WARNING,
+					"Allocation of JIT memory failed, PCRE JIT will be disabled. "
+					"This is likely caused by security restrictions. "
+					"Either grant PHP permission to allocate executable memory, or set pcre.jit=0");
+			}
 			PCRE_G(jit) = 0;
 		} else {
-			pcre2_get_error_message(rc, error, sizeof(error));
-			php_error_docref(NULL, E_WARNING, "JIT compilation failed: %s", error);
-			pcre_handle_exec_error(PCRE2_ERROR_INTERNAL);
+			if (!suppress_errors) {
+				pcre2_get_error_message(rc, error, sizeof(error));
+				php_error_docref(NULL, E_WARNING, "JIT compilation failed: %s", error);
+				pcre_handle_exec_error(PCRE2_ERROR_INTERNAL);
+			}
 		}
 	}
 #endif
@@ -849,8 +867,10 @@ PHPAPI pcre_cache_entry* pcre_get_compiled_regex_cache_ex(zend_string *regex, in
 		if (key != regex) {
 			zend_string_release_ex(key, 0);
 		}
-		php_error_docref(NULL, E_WARNING, "Internal pcre2_pattern_info() error %d", rc);
-		pcre_handle_exec_error(PCRE2_ERROR_INTERNAL);
+		if (!suppress_errors) {
+			php_error_docref(NULL, E_WARNING, "Internal pcre2_pattern_info() error %d", rc);
+			pcre_handle_exec_error(PCRE2_ERROR_INTERNAL);
+		}
 		return NULL;
 	}
 
@@ -859,8 +879,10 @@ PHPAPI pcre_cache_entry* pcre_get_compiled_regex_cache_ex(zend_string *regex, in
 		if (key != regex) {
 			zend_string_release_ex(key, 0);
 		}
-		php_error_docref(NULL, E_WARNING, "Internal pcre_pattern_info() error %d", rc);
-		pcre_handle_exec_error(PCRE2_ERROR_INTERNAL);
+		if (!suppress_errors) {
+			php_error_docref(NULL, E_WARNING, "Internal pcre_pattern_info() error %d", rc);
+			pcre_handle_exec_error(PCRE2_ERROR_INTERNAL);
+		}
 		return NULL;
 	}
 
@@ -887,6 +909,20 @@ PHPAPI pcre_cache_entry* pcre_get_compiled_regex_cache_ex(zend_string *regex, in
 	}
 
 	return ret;
+}
+/* }}} */
+
+/* {{{ pcre_get_compiled_regex_cache_ex */
+PHPAPI pcre_cache_entry* pcre_get_compiled_regex_cache_ex(zend_string *regex, int locale_aware)
+{
+	return _pcre_get_compiled_regex_cache_ex(regex, locale_aware, 0);
+}
+/* }}} */
+
+/* {{{ pcre_get_compiled_regex_cache_no_errors */
+PHPAPI pcre_cache_entry* pcre_get_compiled_regex_cache_no_errors(zend_string *regex)
+{
+	return _pcre_get_compiled_regex_cache_ex(regex, 0, 1);
 }
 /* }}} */
 

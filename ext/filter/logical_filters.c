@@ -504,6 +504,13 @@ void php_filter_validate_regexp(PHP_INPUT_FILTER_PARAM_DECL) /* {{{ */
 	}
 }
 
+void php_filter_validate_regexp_pattern(PHP_INPUT_FILTER_PARAM_DECL) /* {{{ */
+{
+	if (!pcre_get_compiled_regex_cache_no_errors(Z_STR_P(value))) {
+		RETURN_VALIDATION_FAILED
+	}
+}
+
 static int _php_filter_validate_domain(char * domain, size_t len, zend_long flags) /* {{{ */
 {
 	char *e, *s, *t;
