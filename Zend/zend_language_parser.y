@@ -1558,6 +1558,7 @@ encaps_var:
 			{ $$ = zend_ast_create_ex(ZEND_AST_DIM, ZEND_ENCAPS_VAR_DOLLAR_CURLY,
 			      zend_ast_create(ZEND_AST_VAR, $2), $4); }
 	|	T_CURLY_OPEN variable '}' { $$ = $2; }
+	|	T_CURLY_OPEN class_constant '}' { $$ = $2; }
 ;
 
 encaps_var_offset:
